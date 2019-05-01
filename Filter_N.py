@@ -61,7 +61,7 @@ def abreImagem(destino):
   return imagem
 
 def salvaImagem(imagem, destino):
-  imagem.save(destino, 'ppm')
+  imagem.save(destino, 'png')
 
 def criaImagem(i, j):
   imagem = Image.new("L", (i, j))
@@ -108,12 +108,26 @@ def Filter_N(amostras, n, n_colunas,n_elements):
 
     aux.sort(key=lambda tup: abs(tup[1]), reverse=True)  #ordena em forma decrescente, de acordo com val
     i=0
+
+    #figura DCT
+    plt.figure(1)
+    plt.subplot(211)
+    plt.ylabel("Freq")
+    plt.xlabel("Original")
+    plt.plot(list(aux))
+
     #n -> separa os valores mais importantes para acima de um limiar 'n' 
     for i in range(len(aux)):
         if(i>=n):
             indice,dado = aux[i]
             aux[i] = (indice,0)  
-    imagefilter = GetDados(aux)
+
+    #figura filtrada
+    plt.subplot(212)
+    plt.ylabel("Freq")
+    plt.xlabel("Filtrado")
+    plt.plot(list(aux))
+    plt.show()
 
     #ordena as amostras em suas posições originais
     aux.sort(key=lambda tup: abs(tup[0]))  
@@ -122,63 +136,44 @@ def Filter_N(amostras, n, n_colunas,n_elements):
     return  [newimage[i: i+n_elements] for i in range(0, len(newimage), n_elements)]
 
 
-
-
 if __name__ == "__main__":
+  for indice in range(2):
+    if(indice > 0):
+      imagem = abreImagem(str(indice)+".jpg")
+      imagem = cinzaScale(imagem)
+      width, height = imagem.size
+      ParcialDCTCol = []
+      ParcialDCTRow = []
+      FullDCT = []
+      iDCT = []
+      LinhasiDCT = []
+      parinv = []
+      N = 5000
 
-  imagem = abreImagem("1_")
-  imagem = cinzaScale(imagem)
-  width, height = imagem.size
-  ParcialDCTCol = []
-  ParcialDCTRow = []
-  FullDCT = []
-  iDCT = []
-  LinhasiDCT = []
-  parinv = []
-  N = 1000
+      #DCT
+      for n in range(width): #Primeira DCT (DCT da Linha)
+        RowVetPixel = pegaLinhaPixel(imagem,n)
+        ParcialDCTRow.append(MyDCT(RowVetPixel))
+      ParcialDCTCol = trans(ParcialDCTRow)
+      for i in range(height):
+        FullDCT.append(MyDCT(ParcialDCTCol[i]))  #Segunda DCT (DCT da coluna)
 
-  #DCT
-  for n in range(width): #Primeira DCT (DCT da Linha)
-    RowVetPixel = pegaLinhaPixel(imagem,n)
-    ParcialDCTRow.append(MyDCT(RowVetPixel))
-  ParcialDCTCol = trans(ParcialDCTRow)
-  for i in range(height):
-    FullDCT.append(MyDCT(ParcialDCTCol[i]))  #Segunda DCT (DCT da coluna)
+      #Filtro N importantes
+      n_colunas = len(FullDCT)
+      n_elements= len(FullDCT[0])
+      FullDCT = Filter_N(FullDCT,N,n_colunas,n_elements)   #e recebe os valores filtrados
 
-  #figura DCT
-  auxplot = itertools.chain.from_iterable(FullDCT)
-  plt.figure(1)
-  plt.subplot(211)
-  plt.ylabel("Freq")
-  plt.xlabel("Original")
-  plt.plot(list(auxplot))
+      # inversa DCT
+      for i in range(height):
+        parinv.append(InvMyDCT(FullDCT[i]))
+      LinhasiDCT = trans(parinv)
+      for i in range(width):
+        iDCT.append(InvMyDCT(LinhasiDCT[i]))
 
-  #Filtro N importantes
-  n_colunas = len(FullDCT)
-  n_elements= len(FullDCT[0])
-  FullDCT = Filter_N(FullDCT,N,n_colunas,n_elements)   #e recebe os valores filtrados
-
-  #figura filtrada
-  auxplot = itertools.chain.from_iterable(FullDCT)
-  plt.subplot(212)
-  plt.xlabel("Filtrado")
-  plt.plot(list(auxplot))
-  plt.show()
-
-  # inversa DCT
-  for i in range(height):
-    parinv.append(InvMyDCT(FullDCT[i]))
-  LinhasiDCT = trans(parinv)
-  for i in range(width):
-    iDCT.append(InvMyDCT(LinhasiDCT[i]))
-
-  adt = 0
-  newImage = criaImagem(width,height)
-  pixel = newImage.load()
-  for i in range(height):
-    for j in range(width):
-      pixel[j,i] = (int((iDCT[j][i]+adt)/10000))
-  salvaImagem(newImage,str(N)+"_output_aditivo"+str(adt)+".pgm")
-
-
-
+      adt = 0
+      newImage = criaImagem(width,height)
+      pixel = newImage.load()
+      for i in range(height):
+        for j in range(width):
+          pixel[j,i] = (int((iDCT[j][i]+adt)/10000))
+      salvaImagem(newImage,str(indice)+"_output_"+str(N)+".png")
